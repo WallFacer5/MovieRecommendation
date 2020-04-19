@@ -20,20 +20,25 @@ class data_processor:
             'Jan': 1, 'Feb': 2, 'Mar': 3, 'Apr': 4, 'May': 5, 'Jun': 6,
             'Jul': 7, 'Aug': 8, 'Sep': 9, 'Oct': 10, 'Nov': 11, 'Dec': 12
         }
-        self.load_users()
-        self.load_items()
+        self.load_users(occupations_file, users_file)
+        self.load_items(genres_file, items_file)
         self.matrix = [[0 for j in range(len(self.items))] for i in range(len(self.users))]
         self.train_data = []
         self.train_label = []
         self.test_data = []
         self.test_label = []
-        self.load_train_data()
-        self.load_test_data()
+        self.load_train_data(train_file)
+        self.load_test_data(test_file)
         self.train_formatted = []
         self.test_formatted = []
         self.concat_format()
 
-    def load_occupations(self, occupations_file='ml-100k/u.occupation'):
+    def gen_onehot(self, i, length):
+        onehot = [0 for j in range(length)]
+        onehot[i] = 1
+        return onehot
+
+    def load_occupations(self, occupations_file):
         occupations_file = open(occupations_file, 'r')
         i = 0
         for line in occupations_file:
@@ -44,8 +49,8 @@ class data_processor:
                 i += 1
         occupations_file.close()
 
-    def load_users(self, users_file='ml-100k/u.user'):
-        self.load_occupations()
+    def load_users(self, occupations_file, users_file):
+        self.load_occupations(occupations_file)
         users_file = open(users_file, 'r')
         for line in users_file:
             line = line.strip().split('|')
@@ -60,8 +65,14 @@ class data_processor:
                     line[4] = len(self.zipcode_dict)
                 self.users.append(line[1:])
         users_file.close()
+        for i, user in enumerate(self.users):
+            try:
+                user[2:] = self.gen_onehot(user[2], len(self.occupations))
+                self.users[i] = user
+            except Exception:
+                pass
 
-    def load_genres(self, genres_file='ml-100k/u.genre'):
+    def load_genres(self, genres_file):
         genres_file = open(genres_file, 'r')
         for line in genres_file:
             line = line.strip()
@@ -71,8 +82,8 @@ class data_processor:
                 self.genres_dict[line[0]] = int(line[1])
         genres_file.close()
 
-    def load_items(self, items_file='ml-100k/u.item'):
-        self.load_genres()
+    def load_items(self, genres_file, items_file):
+        self.load_genres(genres_file)
         items_file = open(items_file, 'r', encoding='latin')
         for line in items_file:
             line = line.strip().split('|')
@@ -85,7 +96,7 @@ class data_processor:
                     line[2] = line[2].split('-')
                     line[2][1] = self.month_map[line[2][1]]
                 except Exception:
-                    line[2] = ['0', 0, '0']
+                    line[2] = ['1', 1, '1997']
                 line[2:3] = line[2]
                 for j in range(len(line)):
                     try:
@@ -95,7 +106,7 @@ class data_processor:
                 self.items.append(line[1:])
         items_file.close()
 
-    def load_train_data(self, train_file='ml-100k/u1.base'):
+    def load_train_data(self, train_file):
         train_file = open(train_file, 'r')
         for line in train_file:
             line = line.strip()
@@ -106,7 +117,7 @@ class data_processor:
                 self.matrix[int(line[0])][int(line[1])] = int(line[2])
         train_file.close()
 
-    def load_test_data(self, test_file='ml-100k/u1.test'):
+    def load_test_data(self, test_file):
         test_file = open(test_file, 'r')
         for line in test_file:
             line = line.strip()
@@ -118,18 +129,18 @@ class data_processor:
 
     def concat_format(self):
         for i in range(len(self.train_data)):
-            self.train_data[i] = self.users[self.train_data[i][0]] + self.items[self.train_data[i][1]]
+            self.train_formatted.append(self.users[self.train_data[i][0]] + self.items[self.train_data[i][1]])
         for i in range(len(self.test_data)):
-            self.test_data[i] = self.users[self.test_data[i][0]] + self.items[self.test_data[i][1]]
+            self.test_formatted.append(self.users[self.test_data[i][0]] + self.items[self.test_data[i][1]])
 
     def get_matrix(self):
         return self.matrix
 
     def get_train_data(self):
-        return self.train_data
+        return self.train_formatted
 
     def get_test_data(self):
-        return self.test_data
+        return self.test_formatted
 
     def get_train_label(self):
         return self.train_label
