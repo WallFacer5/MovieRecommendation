@@ -234,6 +234,11 @@ class data_processor1m:
             self.movies[i]['title'] = embeddings[i - 1]
 
     def load_data(self, ratings_file):
+        for i in range(len(self.users)):
+            self.train_data.append([])
+            self.train_label.append([])
+            self.test_data.append([])
+            self.test_label.append([])
         ratings_file = open(ratings_file, 'r')
         for line in ratings_file:
             line = line.strip()
@@ -242,16 +247,42 @@ class data_processor1m:
                 user = int(line[0])
                 movie = int(line[1])
                 self.matrix[user][movie] = int(line[2])
-                self.train_label.append(int(line[2]))
+                self.train_label[user].append(int(line[2]))
                 line = {}
                 for k, v in self.users[user].items():
                     line[k] = v
                 for k, v in self.movies[movie].items():
                     line[k] = v
-                self.train_data.append(line)
-        self.train_data, self.test_data, self.train_label, self.test_label = train_test_split(self.train_data,
-                                                                                              self.train_label,
-                                                                                              test_size=0.2)
+                self.train_data[user].append(line)
+
+        for user, data in enumerate(self.train_data):
+            if self.train_data[user] != []:
+                self.train_data[user], self.test_data[user], self.train_label[user], self.test_label[
+                    user] = train_test_split(self.train_data[user],
+                                             self.train_label[user],
+                                             test_size=0.2)
+
+        cat = []
+        for data in self.train_data:
+            cat += data
+        self.train_data = cat
+
+        cat = []
+        for data in self.train_label:
+            cat += data
+        self.train_label = cat
+
+        cat = []
+        for data in self.test_data:
+            cat += data
+        self.origin_test_x = self.test_data
+        self.test_data = cat
+
+        cat = []
+        for data in self.test_label:
+            cat += data
+        self.origin_test_y = self.test_label
+        self.test_label = cat
 
     def get_matrix(self):
         return self.matrix
@@ -273,6 +304,7 @@ class data_processor1m:
             [self.train_data, self.test_data, self.train_label, self.test_label, self.matrix], open('data1m.pkl', 'wb'))
         pickle.dump([self.users, self.movies,
                      self.genres, self.genres_dict, self.zipcode_dict, self.sex_dict], open('data1m_add.pkl', 'wb'))
+        pickle.dump([self.origin_test_x, self.origin_test_y], open('data1m_origin_test.pkl', 'wb'))
 
 
 if __name__ == '__main__':

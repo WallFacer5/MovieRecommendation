@@ -7,12 +7,11 @@ import keras
 from keras import backend as K
 import numpy as np
 import pickle
-from data_processor import data_processor1m
+# from data_processor import data_processor1m
 
 
 def root_mean_squared_error(y_true, y_pred):
-    print(y_pred)
-    return K.sqrt(K.mean(K.square(y_pred - y_true), axis=-1))
+    return K.sqrt(K.mean(K.square(y_pred - y_true), axis=0))
 
 
 class rater:
@@ -43,8 +42,8 @@ class rater:
         self.train_age, self.test_age = self.normalization(self.train_age, self.test_age)
         self.train_year, self.test_year = self.normalization(self.train_year, self.test_year)
 
-        self.train_y = train_y
-        self.test_y = test_y
+        self.train_y = np.array(train_y).reshape([-1, 1])
+        self.test_y = np.array(test_y).reshape([-1, 1])
 
         self.model = None
         self.batch_size = batch_size
@@ -90,7 +89,46 @@ class rater:
             inputs=[input_sex, input_age, input_occupation, input_zip, input_title, input_year, input_genre],
             outputs=pred)
 
-        self.model.compile(loss=root_mean_squared_error, optimizer='adamax', metrics=['accuracy'])
+        self.model.compile(loss=root_mean_squared_error, optimizer='Adamax', metrics=['accuracy', 'mae'])
+
+    def build_model_sep(self):
+        input_sex = keras.layers.Input(shape=(1,))
+        input_age = keras.layers.Input(shape=(1,))
+        input_occupation = keras.layers.Input(shape=(1,))
+        input_zip = keras.layers.Input(shape=(1,))
+        input_title = keras.layers.Input(shape=(768,))
+        input_year = keras.layers.Input(shape=(1,))
+        input_genre = keras.layers.Input(shape=(18,))
+
+        occupation_emb = keras.layers.Embedding(21, 4, input_length=1)(input_occupation)
+        reshape1 = keras.layers.Reshape((-1,))(occupation_emb)
+        zip_emb = keras.layers.Embedding(3440, 32, input_length=1)(input_zip)
+        reshape2 = keras.layers.Reshape((-1,))(zip_emb)
+
+        concat1 = keras.layers.Concatenate()(
+            [input_sex, input_age, reshape1, reshape2])
+
+        concat2 = keras.layers.Concatenate()(
+            [input_title, input_year, input_genre])
+
+        dense1 = keras.layers.Dense(32)(concat1)
+        act1 = keras.layers.Activation('relu')(dense1)
+        dense2 = keras.layers.Dense(256)(concat2)
+        act2 = keras.layers.Activation('relu')(dense2)
+
+        concat = keras.layers.Concatenate()([act1, act2])
+
+        dense3 = keras.layers.Dense(64)(concat)
+        act3 = keras.layers.Activation('relu')(dense3)
+        dense4 = keras.layers.Dense(8)(act3)
+        act4 = keras.layers.Activation('relu')(dense4)
+        pred = keras.layers.Dense(1)(act4)
+
+        self.model = keras.models.Model(
+            inputs=[input_sex, input_age, input_occupation, input_zip, input_title, input_year, input_genre],
+            outputs=pred)
+
+        self.model.compile(loss=root_mean_squared_error, optimizer='RMSprop', metrics=['accuracy', 'mae'])
 
     def train(self):
         self.history = self.model.fit(
@@ -103,14 +141,16 @@ class rater:
             [self.test_sex, self.test_age, self.test_occupation, self.test_zip, self.test_title, self.test_year,
              self.test_genre],
             self.test_y, batch_size=self.batch_size)
+
         print(self.score)
 
 
 if __name__ == '__main__':
     # dp = data_processor1m()
     data = pickle.load(open('data1m.pkl', 'rb'))
-    r = rater(data[0], data[2], data[1], data[3], data[4], batch_size=256, epochs=5)
-    r.build_model()
+    r = rater(data[0], data[2], data[1], data[3], data[4], batch_size=256, epochs=20)
+    # r.build_model()
+    r.build_model_sep()
     r.train()
     r.test()
     print('OK')
