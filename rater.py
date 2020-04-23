@@ -7,6 +7,8 @@ import keras
 from keras import backend as K
 import numpy as np
 import pickle
+
+
 # from data_processor import data_processor1m
 
 
@@ -15,7 +17,7 @@ def root_mean_squared_error(y_true, y_pred):
 
 
 class rater:
-    def __init__(self, train_x, train_y, test_x, test_y, matrix, batch_size=32, epochs=10):
+    def __init__(self, train_x, train_y, test_x, test_y, pred_x, pred_y, matrix, batch_size=32, epochs=10):
         self.matrix = matrix
 
         self.train_sex = np.array(list(map(lambda d: d['sex'], train_x))).reshape([-1, 1])
@@ -44,6 +46,9 @@ class rater:
 
         self.train_y = np.array(train_y).reshape([-1, 1])
         self.test_y = np.array(test_y).reshape([-1, 1])
+
+        self.pred_x = pred_x
+        self.pred_y = pred_y
 
         self.model = None
         self.batch_size = batch_size
@@ -144,11 +149,18 @@ class rater:
 
         print(self.score)
 
+        self.pred_result = self.model.predict(
+            [self.test_sex, self.test_age, self.test_occupation, self.test_zip, self.test_title, self.test_year,
+             self.test_genre], batch_size=self.batch_size)
+
+        pickle.dump([self.pred_x, self.pred_y, self.pred_result], open('pred_results.pkl', 'wb'))
+
 
 if __name__ == '__main__':
     # dp = data_processor1m()
     data = pickle.load(open('data1m.pkl', 'rb'))
-    r = rater(data[0], data[2], data[1], data[3], data[4], batch_size=256, epochs=20)
+    pred = pickle.load(open('data1m_origin_test.pkl', 'rb'))
+    r = rater(data[0], data[2], data[1], data[3], pred[0], pred[1], data[4], batch_size=256, epochs=20)
     # r.build_model()
     r.build_model_sep()
     r.train()
